@@ -1,0 +1,17 @@
+{
+  "name": "ya.cloud-compute-gateway",
+  "version": "1.0.0",
+  "description": "Управление виртуальными машинами в Яндекс.Облаке",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "dev": "nodemon --config nodemon.json"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "axios": "^0.26.1",
+    "dotenv": "^16.0.0"
+  }
+}
