@@ -3,7 +3,7 @@
 	"quiet": true,
 	"ext": "js json",
 	"watch": ["./**/*.*", "*.*"],
-	"ignore": ["node_modules/**/*.*", "./.*/**/*.*"],
+	"ignore": ["node_modules/**/*.*", "./.*/**/*.*", "./.idea"],
 	"execMap": {
 		 "js": "node --es-module-specifier-resolution=node ./index.js"
 	}

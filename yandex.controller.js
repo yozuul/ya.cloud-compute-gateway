@@ -1,11 +1,14 @@
+import { v4 as uuidv4 } from 'uuid'
+
 import { YandexApi } from './yandex.service.js'
 import { cmdSync } from './utils/run-cmd-sync'
 
 export class Yandex {
+   async initApi() {
+      this.token = await YandexApi.iamToken()
+      this.api = new YandexApi(this.token)
+   }
    async wmCreate() {
-      // Генерим токен
-      const token = await YandexApi.iamToken()
-      this.api = new YandexApi(token)
       // Получаем ID облака и папки по умолчанию
       const defaultCloudId = await this.getCloudId()
       const defaultFolderId = await this.getFolderId(defaultCloudId)
@@ -13,27 +16,81 @@ export class Yandex {
       // Создаём образ с диска основной машины
       // const imageId = await this.createImage(defaultFolderId)
       // --
-      // Проверяем существующие образы
-      // const imageList = await this.api.images(defaultFolderId).list()
-      // --
       // Получаем ID основного образа
       const imageId = await this.getSampleImage(defaultFolderId)
       // --
       // Создаём диск с основного образа
-      const diskId = await this.createDiskFromImage(defaultFolderId, imageId)
+      this.createDiskFromImage(defaultFolderId, imageId, createInstanceCb)
       // --
       // Создаём инстанс
-      const instance = await this.createInstance(defaultFolderId, diskId)
+      const createInstance = async (defaultFolderId, diskId) => {
+         const instanse = await this.createInstanceFromDisk(defaultFolderId, diskId)
+         return instanse
+      }
+
+      async function createInstanceCb (diskId) {
+         createInstance(defaultFolderId, diskId)
+      }
       // --
       // Проверяем инстанс
       // const checkInstance = await this.api.instances.getById(instance.id)
    }
 
-   async createInstance(folderId, diskId) {
+   async wmDelete(instanceId) {
+      const deleteInstance = await this.api.instances.delete(instanceId)
+      if(!deleteInstance?.error) {
+         console.log(`ИНСТАНС: ${instanceId} УДАЛЁН`)
+         return instanceId
+      }
+      throw new Error(`${deleteInstance.text} => ${deleteInstance.message}`)
+   }
+   // Создание диска с образа
+   async createDiskFromImage(folderId, imageId, createInstanceCb) {
+      const data = {
+         folderId: folderId,
+         name: 'disk-' + uuidv4(),
+         imageId: imageId,
+         zoneId: 'ru-central1-a',
+         typeId: 'network-ssd',
+         size: this.gb(5.5),
+         blockSize: '4096'
+      }
+      console.log('СОЗДАНИЕ ДИСКА')
+      const diskId = await this.api.disks.create(data)
+      // // Ожидаем подготовки диска
+      const checkDiskStatus = async (timer) => {
+         const status = await this.api.disks.status(diskId)
+         console.log(`Статус диска: ${status} : ${timer}s`)
+         if(status !== 'READY') {
+            timer++
+            setTimeout(checkDiskStatus, 1000, timer)
+         } else {
+            createInstanceCb(diskId)
+         }
+      }
+      checkDiskStatus(0)
+   }
+
+   // Резервирование IP
+   async ipReserve(ip) {
+      const response = await cmdSync('yc vpc address create --external-ipv4 zone=ru-central1-a')
+      if(response.error) {
+         console.log(response.data)
+         throw new Error(`Ошибка резервирования IP => ${response.data[0]}`)
+      }
+      for (let element of response.data) {
+         if(element.includes('address')) ip = element.split('address: ')[1]
+      }
+      console.log(`IP зарезервирован: ${ip}`)
+      return ip
+   }
+   // Создание инстанса
+   async createInstanceFromDisk(folderId, diskId) {
       const ip = await this.ipReserve()
+      console.log('СОЗДАНИЕ ИНСТАНСА')
       const instanceId = await this.api.instances.create({
          folderId: folderId,
-         name: "vm-1-api-test",
+         name: 'instance-' + uuidv4(),
          description: "Тестовая ВМ-1 созданная по API",
          zoneId: "ru-central1-a",
          platformId: "standard-v3",
@@ -47,9 +104,9 @@ export class Yandex {
          // 	"ssh-keys": process.env.PUBLIC_SSH
          // },
          bootDiskSpec: {
-            mode: "READ_WRITE",
-            deviceName: "someId",
-            autoDelete: false,
+            mode: 'READ_WRITE',
+            deviceName: 'boot-disk',
+            autoDelete: true,
             diskId: diskId
          },
          schedulingPolicy: {
@@ -58,66 +115,37 @@ export class Yandex {
          networkInterfaceSpecs: [{
             subnetId: 'e9bfjp2v558fdnu9e7dq',
             primaryV4AddressSpec: {
-               address: '10.128.0.55',
+               // address: '10.128.0.55',
                oneToOneNatSpec: {
                   ipVersion: 'IPV4',
-                  address: ip // 178.154.224.110,
+                  address: ip
                }
             }
          }],
          networkSettings: {
-            type: "STANDARD"
+            type: 'STANDARD'
          },
          placementPolicy: {
-            placementGroupId: "fd8g2gtl9stah581jae3"
+            placementGroupId: 'fd8g2gtl9stah581jae3'
          }
       })
-
+      if(instanceId.error) {
+         throw new Error(`${instanceId.text} => ${instanceId.message}`)
+      }
+      console.log(`ИНСТАНС: ${instanceId} СОЗДАН`)
       return {
          instanceId: instanceId, ip: ip
       }
    }
 
-   // Настройки сети
-   async ipReserve(ip) {
-      const response = await cmdSync('yc vpc address create --external-ipv4 zone=ru-central1-a')
-      if(!response.err) {
-         for (let element of response.data) {
-            if(element.includes('address')) ip = element.split('address: ')[1]
-         }
-         console.log(ip)
-         return ip
-      } else {
-         console.log(response.data)
-         throw new Error('Ошибка резервирования IP')
-      }
-   }
-
-   // Создание диска с образа
-   async createDiskFromImage(folderId, imageId) {
-      const data = {
-         folderId: folderId,
-         name: 'test',
-         description: "test",
-         imageId: imageId,
-         zoneId: "ru-central1-a",
-         typeId: "network-ssd",
-         size: "5368709120",
-         blockSize: "4096"
-      }
-
-      const diskId = await this.api.disks.create(data)
-      return diskId
-   }
    // Получение ID основного образа
    async getSampleImage(folderId) {
-      const images = await this.api.images(folderId).getSampleImage()
+      const images = await this.api.images.getSampleImage(folderId)
       if(!images?.error) {
          const mainImage = images.filter((i) => i.name === 'main-sample')
          return mainImage[0].id
-      } else {
-         throw new Error(`${images.text} | ${images.message}`)
       }
+      throw new Error(`${images.text} => ${images.message}`)
    }
    // Созданме образа из основного инстанса
    async createImage(folderId) {
@@ -125,7 +153,7 @@ export class Yandex {
       const mainInstance = instanceList.filter((i) => i.name === 'main')
       const mainDiskId = mainInstance[0].bootDisk.diskId
       try {
-         const imageId = this.api.images().create({
+         const imageId = this.api.images.create({
             folderId: folderId,
             name: 'main-sample',
             description: 'Основной образ',
@@ -140,16 +168,14 @@ export class Yandex {
          throw new Error ('Ошибка создания образа')
       }
    }
-
    // Получение ID облака по умолчанию
    async getCloudId() {
       const clouds = await this.api.resources.getClouds()
       if(!clouds.error) {
          const { id } = clouds[0]
          return id
-      } else {
-         throw new Error(`${clouds.text} | ${clouds.message}`)
       }
+      throw new Error(`${clouds.text} => ${clouds.message}`)
    }
    // Получение ID папки в облаке по умолчанию
    async getFolderId(cloudId) {
@@ -157,8 +183,10 @@ export class Yandex {
       if(!folders.error) {
          const { id } = folders[0]
          return id
-      } else {
-         throw new Error(`${folders.text} | ${folders.message}`)
       }
+      throw new Error(`${folders.text} => ${folders.message}`)
+   }
+   gb(gb) {
+      return (gb * 1073741824).toString()
    }
 }

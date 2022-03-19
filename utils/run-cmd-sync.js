@@ -9,7 +9,7 @@ export const cmdSync = async (cmd) => {
       response.data = cleaner(stdout.toString().split('\n'))
       return response
    } catch (e) {
-      response.err = true
+      response.error = true
       response.data = cleaner(e.stderr.toString().split('\n'))
       return response
    }

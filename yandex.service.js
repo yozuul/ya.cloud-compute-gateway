@@ -10,34 +10,20 @@ export class YandexApi {
       const fetch = this.axiosInstance(`${this.computeUrl}/disks`)
       return {
          create: async (diskData) => { // Создать
-            const { data } = await fetch.post('', diskData)
-            return data.id
-         },
-         status: async (diskId) => { // Проверка статуса
-            const { data } = await fetch.get(diskId)
-            return data?.status
-         }
-      }
-   }
-   // ОБРАЗЫ
-   images(folderId) {
-      const fetch = this.axiosInstance(`${this.computeUrl}/images`)
-      return {
-         create: async (imageData) => { // Создать
-            const { data } = await fetch.post('', imageData)
-            return data.id
-         },
-         getSampleImage: async () => { // Список образов в указанной папке
             try {
-               const { data } = await fetch.get(`?folderId=${folderId}`)
-               return (data.images ? data.images : false)
-            } catch (err) {
-               return this.error('Ошибка получения списка образов', err)
+               const { data } = await fetch.post('/', diskData)
+               return data.metadata.diskId
+            } catch (error) {
+               return this.error('Ошибка создания диска', err)
             }
          },
-         checkDiskStatus: async (diskId) => {
-            const { data } = await fetch.get(diskId)
-            console.log(data)
+         status: async (diskId) => { // Проверка статуса
+            try {
+               const { data } = await fetch.get(diskId)
+               return data?.status
+            } catch (error) {
+               return this.error(`Ошибка получения статуса диска ${diskId}`, err)
+            }
          }
       }
    }
@@ -46,8 +32,20 @@ export class YandexApi {
       const fetch = this.axiosInstance(`${this.computeUrl}/instances`)
       return {
          create: async (instanceData) => { // Создать
-            const { data } = await fetch.post('', instanceData)
-            return data.metadata.instanceId
+            try {
+               const { data } = await fetch.post('', instanceData)
+               return data.metadata.instanceId
+            } catch (err) {
+               return this.error('Ошибка создания инстанса', err)
+            }
+         },
+         delete: async (instanceId) => { // Удалить
+            try {
+               const { data } = await fetch.delete(instanceId)
+               return data.metadata.instanceId
+            } catch (err) {
+               return this.error('Ошибка удаление инстанса', err)
+            }
          },
          list: async (folderId) => { // Получить список
             try {
@@ -60,6 +58,24 @@ export class YandexApi {
          getById: async (instanceId) => { // Получить по ID
             const { data } = await fetch.get(instanceId)
             return data
+         }
+      }
+   }
+   // ОБРАЗЫ
+   get images() {
+      const fetch = this.axiosInstance(`${this.computeUrl}/images`)
+      return {
+         create: async (imageData) => { // Создать
+            const { data } = await fetch.post('', imageData)
+            return data.id
+         },
+         getSampleImage: async (folderId) => { // Список образов в указанной папке
+            try {
+               const { data } = await fetch.get(`?folderId=${folderId}`)
+               return (data.images ? data.images : false)
+            } catch (err) {
+               return this.error('Ошибка получения списка образов', err)
+            }
          }
       }
    }
@@ -94,16 +110,13 @@ export class YandexApi {
       const { data: { iamToken }} = await axios.post(url, {
          yandexPassportOauthToken: process.env.YANDEX_OAUTH_TOKEN
       })
-      // console.log(iamToken)
       return iamToken
    }
-
    axiosInstance(url) {
       return axios.create({
          baseURL: url, headers: { Authorization: `Bearer ${this.token}`}
       })
    }
-
    error(text, err) {
       return {
          error: true, text: text, message: err.response ? err.response.data.message : err,
