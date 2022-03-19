@@ -35,15 +35,6 @@ export class Yandex {
       // Проверяем инстанс
       // const checkInstance = await this.api.instances.getById(instance.id)
    }
-
-   async wmDelete(instanceId) {
-      const deleteInstance = await this.api.instances.delete(instanceId)
-      if(!deleteInstance?.error) {
-         console.log(`ИНСТАНС: ${instanceId} УДАЛЁН`)
-         return instanceId
-      }
-      throw new Error(`${deleteInstance.text} => ${deleteInstance.message}`)
-   }
    // Создание диска с образа
    async createDiskFromImage(folderId, imageId, createInstanceCb) {
       const data = {
@@ -57,7 +48,7 @@ export class Yandex {
       }
       console.log('СОЗДАНИЕ ДИСКА')
       const diskId = await this.api.disks.create(data)
-      // // Ожидаем подготовки диска
+      // Ожидаем подготовки диска
       const checkDiskStatus = async (timer) => {
          const status = await this.api.disks.status(diskId)
          console.log(`Статус диска: ${status} : ${timer}s`)
@@ -70,7 +61,6 @@ export class Yandex {
       }
       checkDiskStatus(0)
    }
-
    // Резервирование IP
    async ipReserve(ip) {
       const response = await cmdSync('yc vpc address create --external-ipv4 zone=ru-central1-a')
@@ -91,7 +81,6 @@ export class Yandex {
       const instanceId = await this.api.instances.create({
          folderId: folderId,
          name: 'instance-' + uuidv4(),
-         description: "Тестовая ВМ-1 созданная по API",
          zoneId: "ru-central1-a",
          platformId: "standard-v3",
          resourcesSpec: {
@@ -137,7 +126,15 @@ export class Yandex {
          instanceId: instanceId, ip: ip
       }
    }
-
+   // Удаление инстанса
+   async wmDelete(instanceId) {
+      const deleteInstance = await this.api.instances.delete(instanceId)
+      if(!deleteInstance?.error) {
+         console.log(`ИНСТАНС: ${instanceId} УДАЛЁН`)
+         return instanceId
+      }
+      throw new Error(`${deleteInstance.text} => ${deleteInstance.message}`)
+   }
    // Получение ID основного образа
    async getSampleImage(folderId) {
       const images = await this.api.images.getSampleImage(folderId)
