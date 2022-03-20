@@ -8,7 +8,7 @@ export class Yandex {
       this.token = await YandexApi.iamToken()
       this.api = new YandexApi(this.token)
    }
-   async wmCreate() {
+   async vmCreate() {
       // Получаем ID облака и папки по умолчанию
       const defaultCloudId = await this.getCloudId()
       const defaultFolderId = await this.getFolderId(defaultCloudId)
@@ -126,7 +126,7 @@ export class Yandex {
       }
    }
    // Удаление инстанса
-   async wmDelete(instanceId) {
+   async vmDelete(instanceId) {
       const deleteInstance = await this.api.instances.delete(instanceId)
       if(!deleteInstance?.error) {
          console.log(`ИНСТАНС: ${instanceId} УДАЛЁН`)
