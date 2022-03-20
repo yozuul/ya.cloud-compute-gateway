@@ -13,7 +13,7 @@ export class YandexApi {
             try {
                const { data } = await fetch.post('/', diskData)
                return data.metadata.diskId
-            } catch (error) {
+            } catch (err) {
                return this.error('Ошибка создания диска', err)
             }
          },
@@ -21,7 +21,7 @@ export class YandexApi {
             try {
                const { data } = await fetch.get(diskId)
                return data?.status
-            } catch (error) {
+            } catch (err) {
                return this.error(`Ошибка получения статуса диска ${diskId}`, err)
             }
          }
@@ -66,8 +66,12 @@ export class YandexApi {
       const fetch = this.axiosInstance(`${this.computeUrl}/images`)
       return {
          create: async (imageData) => { // Создать
-            const { data } = await fetch.post('', imageData)
-            return data.id
+            try {
+               const { data } = await fetch.post('', imageData)
+               return data.id
+            } catch (err) {
+               return this.error('Ошибка создания образа', err)
+            }
          },
          getSampleImage: async (folderId) => { // Список образов в указанной папке
             try {

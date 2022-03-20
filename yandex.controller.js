@@ -27,7 +27,6 @@ export class Yandex {
          const instanse = await this.createInstanceFromDisk(defaultFolderId, diskId)
          return instanse
       }
-
       async function createInstanceCb (diskId) {
          createInstance(defaultFolderId, diskId)
       }
@@ -81,13 +80,13 @@ export class Yandex {
       const instanceId = await this.api.instances.create({
          folderId: folderId,
          name: 'instance-' + uuidv4(),
-         zoneId: "ru-central1-a",
-         platformId: "standard-v3",
+         zoneId: 'ru-central1-a',
+         platformId: 'standard-v3',
          resourcesSpec: {
-            memory: "2147483648",
-            cores: "2",
-            coreFraction: "100",
-            gpus: "0"
+            memory: this.gb(2),
+            cores: '2',
+            coreFraction: '100',
+            gpus: '0'
          },
          // metadata: {
          // 	"ssh-keys": process.env.PUBLIC_SSH
@@ -118,7 +117,7 @@ export class Yandex {
             placementGroupId: 'fd8g2gtl9stah581jae3'
          }
       })
-      if(instanceId.error) {
+      if(instanceId?.error) {
          throw new Error(`${instanceId.text} => ${instanceId.message}`)
       }
       console.log(`ИНСТАНС: ${instanceId} СОЗДАН`)
@@ -144,26 +143,26 @@ export class Yandex {
       }
       throw new Error(`${images.text} => ${images.message}`)
    }
-   // Созданме образа из основного инстанса
+   // Создание образа из основного инстанса
    async createImage(folderId) {
       const instanceList = await this.api.instances.list(folderId)
       const mainInstance = instanceList.filter((i) => i.name === 'main')
       const mainDiskId = mainInstance[0].bootDisk.diskId
-      try {
-         const imageId = this.api.images.create({
-            folderId: folderId,
-            name: 'main-sample',
-            description: 'Основной образ',
-            typeId: "network-ssd",
-            zoneId: "ru-central1-a",
-            size: "5368709120",
-            blockSize: "4096",
-            diskId: mainDiskId
-         })
-         return imageId
-      } catch (error) {
-         throw new Error ('Ошибка создания образа')
+
+      const imageId = this.api.images.create({
+         folderId: folderId,
+         name: 'main-sample',
+         description: 'Основной образ',
+         typeId: 'network-ssd',
+         zoneId: 'ru-central1-a',
+         size: this.gb(5.5),
+         blockSize: '4096',
+         diskId: mainDiskId
+      })
+      if(imageId?.error) {
+         throw new Error(`${imageId.text} => ${imageId.message}`)
       }
+      return imageId
    }
    // Получение ID облака по умолчанию
    async getCloudId() {
