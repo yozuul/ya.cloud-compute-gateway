@@ -75,7 +75,7 @@ export class Yandex {
    }
    // Создание инстанса
    async createInstanceFromDisk(folderId, diskId) {
-      const ip = await this.ipReserve()
+      // const ip = await this.ipReserve()
       console.log('СОЗДАНИЕ ИНСТАНСА')
       const instanceId = await this.api.instances.create({
          folderId: folderId,
@@ -122,7 +122,8 @@ export class Yandex {
       }
       console.log(`ИНСТАНС: ${instanceId} СОЗДАН`)
       return {
-         instanceId: instanceId, ip: ip
+         instanceId: instanceId,
+         // ip: ip
       }
    }
    // Удаление инстанса
