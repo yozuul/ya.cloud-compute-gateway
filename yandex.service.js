@@ -83,6 +83,20 @@ export class YandexApi {
          }
       }
    }
+   // СНИМКИ
+   get snapshots() {
+      const fetch = this.axiosInstance(`${this.computeUrl}/snapshots`)
+      return {
+         create: async (snapshotData) => { // Создать
+            try {
+               const { data } = await fetch.post('', snapshotData)
+               return data.id
+            } catch (err) {
+               return this.error('Ошибка создания снимка', err)
+            }
+         }
+      }
+   }
    // РЕСУРСЫ --
    get resources() {
       return {

@@ -12,7 +12,7 @@ export class Yandex {
       // Получаем ID облака и папки по умолчанию
       const defaultCloudId = await this.getCloudId()
       const defaultFolderId = await this.getFolderId(defaultCloudId)
-      // --
+      // -- ОБРАЗ --
       // Создаём образ с диска основной машины
       // const imageId = await this.createImage(defaultFolderId)
       // --
@@ -21,7 +21,13 @@ export class Yandex {
       // --
       // Создаём диск с основного образа
       this.createDiskFromImage(defaultFolderId, imageId, createInstanceCb)
+      // -- ОБРАЗ --
+      // -- СНИМОК --
+      // Создаём снимок с диска основной машины
+      // const snapshotId = await this.createSnapshot(defaultFolderId)
       // --
+      // Создаём диск с основного образа
+      // this.createDiskFromSnapshot(defaultFolderId, createInstanceCb)
       // Создаём инстанс
       const createInstance = async (defaultFolderId, diskId) => {
          const instanse = await this.createInstanceFromDisk(defaultFolderId, diskId)
@@ -33,6 +39,32 @@ export class Yandex {
       // --
       // Проверяем инстанс
       // const checkInstance = await this.api.instances.getById(instance.id)
+   }
+   // Создание диска со снимка
+   async createDiskFromSnapshot(folderId, createInstanceCb) {
+      const data = {
+         folderId: folderId,
+         name: 'disk-' + uuidv4(),
+         snapshotId: 'fd8lear6da1no8hsh0ur',
+         zoneId: 'ru-central1-a',
+         typeId: 'network-ssd',
+         size: this.gb(5.5),
+         blockSize: '4096'
+      }
+      console.log('СОЗДАНИЕ ДИСКА')
+      const diskId = await this.api.disks.create(data)
+      // Ожидаем подготовки диска
+      const checkDiskStatus = async (timer) => {
+         const status = await this.api.disks.status(diskId)
+         console.log(`Статус диска: ${status} : ${timer}s`)
+         if(status !== 'READY') {
+            timer++
+            setTimeout(checkDiskStatus, 1000, timer)
+         } else {
+            createInstanceCb(diskId)
+         }
+      }
+      checkDiskStatus(0)
    }
    // Создание диска с образа
    async createDiskFromImage(folderId, imageId, createInstanceCb) {
@@ -106,7 +138,7 @@ export class Yandex {
                // address: '10.128.0.55',
                oneToOneNatSpec: {
                   ipVersion: 'IPV4',
-                  address: ip
+                  // address: ip
                }
             }
          }],
@@ -143,6 +175,18 @@ export class Yandex {
          return mainImage[0].id
       }
       throw new Error(`${images.text} => ${images.message}`)
+   }
+   // Создание снимка с основного инстанса
+   async createSnapshot(folderId) {
+      const snapshotId = this.api.snapshots.create({
+         folderId: folderId,
+         diskId: 'fhm0l2nrd4qsuraghfqo',
+         name: 'test-snapshot'
+      })
+      if(snapshotId ?.error) {
+         throw new Error(`${snapshotId.text} => ${snapshotId.message}`)
+      }
+      return snapshotId
    }
    // Создание образа из основного инстанса
    async createImage(folderId) {
